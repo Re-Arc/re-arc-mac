@@ -15,6 +15,10 @@ struct AppFeatureTests {
         #expect(state.selectedTabID == first.id)
     }
 
+    @Test func showsSidebarByDefault() {
+        #expect(AppFeature.State().isSidebarVisible)
+    }
+
     @Test func selectingTabUpdatesSelection() async {
         let store = TestStore(initialState: AppFeature.State(tabs: [first, second])) {
             AppFeature()
@@ -30,6 +34,18 @@ struct AppFeatureTests {
             AppFeature()
         }
         await store.send(.tabSelected(UUID()))
+    }
+
+    @Test func togglingSidebarHidesAndShowsIt() async {
+        let store = TestStore(initialState: AppFeature.State(tabs: [first])) {
+            AppFeature()
+        }
+        await store.send(.toggleSidebar) {
+            $0.isSidebarVisible = false
+        }
+        await store.send(.toggleSidebar) {
+            $0.isSidebarVisible = true
+        }
     }
 
     @Test func pageStateUpdatesTab() async {

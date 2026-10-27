@@ -52,6 +52,12 @@ final class BrowserWindowController: NSWindowController, NSMenuItemValidation {
         store.send(.reopenClosedTab)
     }
 
+    // Not named toggleSidebar(_:): SwiftUI's hosting view answers that
+    // selector itself and sits ahead of this controller in the responder chain.
+    @objc func toggleBrowserSidebar(_ sender: Any?) {
+        store.send(.toggleSidebar)
+    }
+
     @objc func selectNextBrowserTab(_ sender: Any?) {
         store.send(.selectNextTab)
     }
@@ -61,7 +67,10 @@ final class BrowserWindowController: NSWindowController, NSMenuItemValidation {
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        switch menuItem.action {
+        if menuItem.action == #selector(toggleBrowserSidebar(_:)) {
+            menuItem.title = store.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar"
+        }
+        return switch menuItem.action {
         case #selector(closeTab(_:)):
             store.selectedTabID != nil
         case #selector(reopenClosedTab(_:)):

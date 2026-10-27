@@ -15,13 +15,16 @@ public struct AppFeature {
         public internal(set) var previouslySelectedTabID: Tab.ID?
         /// Most recently closed first, for Reopen Closed Tab.
         public var recentlyClosed: [ClosedTab] = []
+        public var isSidebarVisible: Bool
 
         public init(
             tabs: IdentifiedArrayOf<Tab> = [Tab(url: .startPage, title: Tab.startPageTitle)],
-            selectedTabID: Tab.ID? = nil
+            selectedTabID: Tab.ID? = nil,
+            isSidebarVisible: Bool = true
         ) {
             self.tabs = tabs
             self.selectedTabID = selectedTabID ?? tabs.first?.id
+            self.isSidebarVisible = isSidebarVisible
         }
 
         public var selectedTab: Tab? {
@@ -36,6 +39,7 @@ public struct AppFeature {
         case selectNextTab
         case selectPreviousTab
         case tabSelected(Tab.ID)
+        case toggleSidebar
         /// The engine reported a change in a tab's page.
         case pageStateChanged(Tab.ID, PageState)
         /// A page opened a link in a new tab (a popup, `target=_blank` or Cmd-click).
@@ -92,6 +96,10 @@ public struct AppFeature {
             case let .tabSelected(id):
                 guard state.tabs[id: id] != nil else { return .none }
                 state.select(id)
+                return .none
+
+            case .toggleSidebar:
+                state.isSidebarVisible.toggle()
                 return .none
 
             case let .pageStateChanged(id, page):
