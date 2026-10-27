@@ -7,6 +7,7 @@ enum MainMenu {
         let menu = NSMenu()
         menu.addItem(submenuItem(appMenu()))
         menu.addItem(submenuItem(editMenu()))
+        menu.addItem(submenuItem(viewMenu()))
         menu.addItem(submenuItem(tabsMenu()))
         menu.addItem(submenuItem(windowMenu()))
         return menu
@@ -32,6 +33,18 @@ enum MainMenu {
         menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        return menu
+    }
+
+    // BrowserWindowController handles this through the responder chain and
+    // retitles the item to Show or Hide Sidebar.
+    private static func viewMenu() -> NSMenu {
+        let menu = NSMenu(title: "View")
+        menu.addItem(
+            withTitle: "Hide Sidebar",
+            action: #selector(BrowserWindowController.toggleBrowserSidebar(_:)),
+            keyEquivalent: "s"
+        )
         return menu
     }
 
