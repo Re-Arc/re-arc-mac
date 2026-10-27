@@ -34,17 +34,29 @@ public final class WebKitEngine: BrowserEngine {
 }
 
 @MainActor
-final class WebKitTab: BrowserTab {
+final class WebKitTab: NSObject, BrowserTab {
     private let webView: WKWebView
+    private var observations: [NSKeyValueObservation] = []
+    private(set) var pageState = PageState()
+    var onEvent: ((BrowserTabEvent) -> Void)?
 
     init(configuration: WKWebViewConfiguration) {
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
+        super.init()
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        observations = [
+            observe(\.url),
+            observe(\.title),
+            observe(\.isLoading),
+            observe(\.estimatedProgress),
+            observe(\.canGoBack),
+            observe(\.canGoForward),
+        ]
     }
 
     var view: NSView { webView }
-    var url: URL? { webView.url }
-    var title: String? { webView.title }
 
     func load(_ url: URL) {
         webView.load(URLRequest(url: url))
@@ -60,5 +72,109 @@ final class WebKitTab: BrowserTab {
 
     func reload() {
         webView.reload()
+    }
+
+    func stopLoading() {
+        webView.stopLoading()
+    }
+
+    // WebKit posts these KVO changes on the main thread.
+    private func observe<Value>(_ keyPath: KeyPath<WKWebView, Value>) -> NSKeyValueObservation {
+        webView.observe(keyPath) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                self?.updatePageState()
+            }
+        }
+    }
+
+    private func updatePageState(faviconURL: URL?? = nil) {
+        var state = PageState(
+            url: webView.url,
+            title: webView.title,
+            isLoading: webView.isLoading,
+            estimatedProgress: webView.estimatedProgress,
+            canGoBack: webView.canGoBack,
+            canGoForward: webView.canGoForward,
+            faviconURL: pageState.faviconURL
+        )
+        if let faviconURL {
+            state.faviconURL = faviconURL
+        }
+        guard state != pageState else { return }
+        pageState = state
+        onEvent?(.pageStateChanged(state))
+    }
+
+    /// Opens `child` as a new tab and hands it to the app.
+    private func open(_ child: WebKitTab, inBackground: Bool) {
+        onEvent?(.newTabOpened(child, inBackground: inBackground))
+    }
+}
+
+extension WebKitTab: WKNavigationDelegate {
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        preferences: WKWebpagePreferences
+    ) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
+        // Cmd-click and middle-click open the link in a new tab, like Safari.
+        let flags = navigationAction.modifierFlags
+        let wantsNewTab = flags.contains(.command) || navigationAction.buttonNumber == 2
+        guard navigationAction.navigationType == .linkActivated, wantsNewTab,
+            let url = navigationAction.request.url
+        else {
+            return (.allow, preferences)
+        }
+        let child = WebKitTab(configuration: webView.configuration)
+        child.load(url)
+        open(child, inBackground: !flags.contains(.shift))
+        return (.cancel, preferences)
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        // A favicon from another site would be wrong; one from the same site is
+        // a better placeholder than nothing until the new page finishes.
+        if pageState.faviconURL?.host() != webView.url?.host() {
+            updatePageState(faviconURL: .some(nil))
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        let pageURL = webView.url
+        webView.evaluateJavaScript(Self.faviconScript) { [weak self] result, _ in
+            MainActor.assumeIsolated {
+                guard let self, self.webView.url == pageURL else { return }
+                let declared = (result as? String).flatMap(URL.init(string:))
+                self.updatePageState(faviconURL: .some(declared ?? Self.defaultFaviconURL(for: pageURL)))
+            }
+        }
+    }
+
+    /// WebKit doesn't expose favicons, so read the page's `<link rel=icon>`.
+    private static let faviconScript = """
+        (() => {
+            const link = document.querySelector("link[rel~='icon'], link[rel='apple-touch-icon']");
+            return link ? link.href : null;
+        })()
+        """
+
+    private static func defaultFaviconURL(for pageURL: URL?) -> URL? {
+        guard let pageURL, ["http", "https"].contains(pageURL.scheme) else { return nil }
+        return URL(string: "/favicon.ico", relativeTo: pageURL)?.absoluteURL
+    }
+}
+
+extension WebKitTab: WKUIDelegate {
+    // `target=_blank` links and `window.open`. WebKit requires the returned
+    // view to use the configuration it passes in.
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        let child = WebKitTab(configuration: configuration)
+        open(child, inBackground: false)
+        return child.webView
     }
 }

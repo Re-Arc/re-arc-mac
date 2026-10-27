@@ -8,10 +8,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store = Store(initialState: AppFeature.State()) {
         AppFeature()
     }
-    private let engine: any BrowserEngine = WebKitEngine()
+    private let tabs = TabRegistry(engine: WebKitEngine())
     private var windowController: BrowserWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        tabs.onEvent = { [store] id, event in
+            switch event {
+            case let .pageStateChanged(page):
+                store.send(.pageStateChanged(id, page))
+            case .newTabOpened:
+                break
+            }
+        }
         NSApp.mainMenu = MainMenu.make()
         showBrowserWindow()
         NSApp.activate()
@@ -30,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showBrowserWindow() {
-        let controller = windowController ?? BrowserWindowController(store: store, engine: engine)
+        let controller = windowController ?? BrowserWindowController(store: store, tabs: tabs)
         windowController = controller
         controller.showWindow(nil)
     }
