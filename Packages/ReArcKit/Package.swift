@@ -32,6 +32,10 @@ let package = Package(
         .target(name: "ReArcUI"),
         .target(name: "ReArcFoundation"),
         .testTarget(
+            name: "AppShellTests",
+            dependencies: ["AppShell", "AppFeature", "BrowserEngine", "ReArcFoundation"]
+        ),
+        .testTarget(
             name: "AppFeatureTests",
             dependencies: ["AppFeature", composableArchitecture]
         ),

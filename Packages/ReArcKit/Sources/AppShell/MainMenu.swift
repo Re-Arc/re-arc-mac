@@ -8,6 +8,7 @@ enum MainMenu {
         menu.addItem(submenuItem(appMenu()))
         menu.addItem(submenuItem(editMenu()))
         menu.addItem(submenuItem(viewMenu()))
+        menu.addItem(submenuItem(tabsMenu()))
         menu.addItem(submenuItem(windowMenu()))
         return menu
     }
@@ -47,12 +48,43 @@ enum MainMenu {
         return menu
     }
 
+    // Handled by the key window's BrowserWindowController.
+    private static func tabsMenu() -> NSMenu {
+        let menu = NSMenu(title: "Tabs")
+        menu.addItem(withTitle: "New Tab", action: #selector(BrowserWindowController.newTab(_:)), keyEquivalent: "t")
+        menu.addItem(withTitle: "Close Tab", action: #selector(BrowserWindowController.closeTab(_:)), keyEquivalent: "w")
+        menu.addItem(
+            withTitle: "Reopen Closed Tab",
+            action: #selector(BrowserWindowController.reopenClosedTab(_:)),
+            keyEquivalent: "T"
+        )
+        menu.addItem(.separator())
+        let next = menu.addItem(
+            withTitle: "Next Tab",
+            action: #selector(BrowserWindowController.selectNextBrowserTab(_:)),
+            keyEquivalent: arrowKey(NSDownArrowFunctionKey)
+        )
+        next.keyEquivalentModifierMask = [.command, .option]
+        let previous = menu.addItem(
+            withTitle: "Previous Tab",
+            action: #selector(BrowserWindowController.selectPreviousBrowserTab(_:)),
+            keyEquivalent: arrowKey(NSUpArrowFunctionKey)
+        )
+        previous.keyEquivalentModifierMask = [.command, .option]
+        return menu
+    }
+
     private static func windowMenu() -> NSMenu {
         let menu = NSMenu(title: "Window")
         menu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        menu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        // Cmd+W closes the tab, so closing the window takes Shift, as in Arc.
+        menu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "W")
         NSApp.windowsMenu = menu
         return menu
+    }
+
+    private static func arrowKey(_ key: Int) -> String {
+        String(Character(UnicodeScalar(UInt16(key))!))
     }
 
     private static func submenuItem(_ submenu: NSMenu) -> NSMenuItem {
