@@ -1,0 +1,3 @@
+import AppShell
+
+ReArcApplication.run()

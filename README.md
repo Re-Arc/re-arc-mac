@@ -52,7 +52,37 @@ Have an idea? [Open a feature request](https://github.com/Re-Arc/re-arc-mac/issu
 
 ## Getting started
 
-Re-Arc is not ready to install yet. Build instructions will be added here once the first version of the app lands.
+Re-Arc is not ready to install yet, but you can build the project skeleton.
+
+**Requirements:** macOS 14 or later, Xcode 16 or later, and [Homebrew](https://brew.sh).
+
+```sh
+make bootstrap   # install XcodeGen
+make test        # build and test the Swift package
+make open        # generate ReArc.xcodeproj and open it in Xcode
+```
+
+### Tech stack
+
+- **Swift 6**, with **AppKit** windows that host **SwiftUI** views
+- **The Composable Architecture** for app state
+- **WebKit** (`WKWebView`) as the web engine, behind a `BrowserEngine` protocol so other engines can be added
+- **Sparkle** for updates, and **XcodeGen** to generate the Xcode project
+
+The stack follows how Arc itself is built. See the [Arc teardown](docs/arc-teardown.md) for what Arc uses and why Re-Arc differs where it does.
+
+### Project layout
+
+```
+App/                    app target: entry point, Info.plist, entitlements
+Packages/ReArcKit/      all app code, as Swift package modules
+  AppShell/             app delegate, windows, menus
+  AppFeature/           root state and actions (TCA)
+  BrowserEngine/        engine protocol and WebKit implementation
+  ReArcUI/              design tokens and shared views
+  ReArcFoundation/      shared models (profiles, URLs)
+project.yml             XcodeGen spec for ReArc.xcodeproj
+```
 
 ## Contributing
 

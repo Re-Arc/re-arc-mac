@@ -1,0 +1,52 @@
+# XcodeGen spec for the macOS app target. Run `make project` to generate
+# ReArc.xcodeproj (it is not committed). App code lives in Packages/ReArcKit.
+name: ReArc
+options:
+  bundleIdPrefix: org.rearc
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+packages:
+  ReArcKit:
+    path: Packages/ReArcKit
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.0
+
+targets:
+  ReArc:
+    type: application
+    platform: macOS
+    sources:
+      - App/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.rearc.ReArc
+        PRODUCT_NAME: Re-Arc
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/ReArc.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        # Ad-hoc signing for local builds; release signing comes later.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+    dependencies:
+      - package: ReArcKit
+        product: AppShell
+      - package: Sparkle
+
+schemes:
+  ReArc:
+    build:
+      targets:
+        ReArc: all
+    run:
+      config: Debug
+    test:
+      config: Debug
