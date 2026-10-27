@@ -28,6 +28,8 @@ public struct AppFeature {
         case tabSelected(Tab.ID)
         /// The engine reported a change in a tab's page.
         case pageStateChanged(Tab.ID, PageState)
+        /// A page opened a link in a new tab (a popup, `target=_blank` or Cmd-click).
+        case tabOpenedByPage(Tab, openerID: Tab.ID, inBackground: Bool)
     }
 
     public init() {}
@@ -42,6 +44,15 @@ public struct AppFeature {
 
             case let .pageStateChanged(id, page):
                 state.tabs[id: id]?.apply(page)
+                return .none
+
+            case let .tabOpenedByPage(tab, openerID, inBackground):
+                // Opened tabs go right after the page that opened them.
+                let index = state.tabs.index(id: openerID).map { $0 + 1 } ?? state.tabs.endIndex
+                state.tabs.insert(tab, at: index)
+                if !inBackground {
+                    state.selectedTabID = tab.id
+                }
                 return .none
             }
         }

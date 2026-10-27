@@ -29,8 +29,9 @@ public enum BrowserTabEvent {
     case pageStateChanged(PageState)
     /// The page opened a new window (`target=_blank`, `window.open`) or the
     /// user Cmd-clicked a link. The engine has already created the new tab,
-    /// so a popup keeps its link to the page that opened it.
-    case newTabOpened(any BrowserTab, inBackground: Bool)
+    /// so a popup keeps its link to the page that opened it. The receiver must
+    /// keep the tab alive before returning, or the page closes.
+    case newTabOpened(any BrowserTab, url: URL?, inBackground: Bool)
 }
 
 public struct TabConfiguration: Sendable {

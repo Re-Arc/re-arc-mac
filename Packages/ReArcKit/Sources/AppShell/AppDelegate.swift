@@ -12,12 +12,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowController: BrowserWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        tabs.onEvent = { [store] id, event in
+        tabs.onEvent = { [store, tabs] id, event in
             switch event {
             case let .pageStateChanged(page):
                 store.send(.pageStateChanged(id, page))
-            case .newTabOpened:
-                break
+            case let .newTabOpened(engineTab, url, inBackground):
+                let tab = AppFeature.Tab(url: url ?? .blankPage, title: url?.host() ?? "New Tab")
+                tabs.register(engineTab, for: tab.id)
+                store.send(.tabOpenedByPage(tab, openerID: id, inBackground: inBackground))
             }
         }
         NSApp.mainMenu = MainMenu.make()

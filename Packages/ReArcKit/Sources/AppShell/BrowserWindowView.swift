@@ -57,10 +57,18 @@ struct WebContentView: NSViewRepresentable {
 
     func updateNSView(_ container: NSView, context: Context) {
         guard container.subviews != [tab.view] else { return }
+        // Keep typing and scrolling going to the page after a switch.
+        let window = container.window
+        let hadFocus = container.subviews.contains { pageView in
+            (window?.firstResponder as? NSView)?.isDescendant(of: pageView) == true
+        }
         for pageView in container.subviews {
             pageView.removeFromSuperview()
         }
         attach(tab.view, to: container)
+        if hadFocus {
+            window?.makeFirstResponder(tab.view)
+        }
     }
 
     private func attach(_ pageView: NSView, to container: NSView) {

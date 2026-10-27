@@ -37,6 +37,8 @@ public final class WebKitEngine: BrowserEngine {
 final class WebKitTab: NSObject, BrowserTab {
     private let webView: WKWebView
     private var observations: [NSKeyValueObservation] = []
+    /// Host of the page the current favicon was found on.
+    private var faviconHost: String?
     private(set) var pageState = PageState()
     var onEvent: ((BrowserTabEvent) -> Void)?
 
@@ -105,9 +107,9 @@ final class WebKitTab: NSObject, BrowserTab {
         onEvent?(.pageStateChanged(state))
     }
 
-    /// Opens `child` as a new tab and hands it to the app.
-    private func open(_ child: WebKitTab, inBackground: Bool) {
-        onEvent?(.newTabOpened(child, inBackground: inBackground))
+    /// Hands `child` to the app to show as a new tab.
+    private func open(_ child: WebKitTab, url: URL?, inBackground: Bool) {
+        onEvent?(.newTabOpened(child, url: url, inBackground: inBackground))
     }
 }
 
@@ -127,14 +129,15 @@ extension WebKitTab: WKNavigationDelegate {
         }
         let child = WebKitTab(configuration: webView.configuration)
         child.load(url)
-        open(child, inBackground: !flags.contains(.shift))
+        open(child, url: url, inBackground: !flags.contains(.shift))
         return (.cancel, preferences)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         // A favicon from another site would be wrong; one from the same site is
         // a better placeholder than nothing until the new page finishes.
-        if pageState.faviconURL?.host() != webView.url?.host() {
+        if faviconHost != webView.url?.host() {
+            faviconHost = nil
             updatePageState(faviconURL: .some(nil))
         }
     }
@@ -142,11 +145,10 @@ extension WebKitTab: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         let pageURL = webView.url
         webView.evaluateJavaScript(Self.faviconScript) { [weak self] result, _ in
-            MainActor.assumeIsolated {
-                guard let self, self.webView.url == pageURL else { return }
-                let declared = (result as? String).flatMap(URL.init(string:))
-                self.updatePageState(faviconURL: .some(declared ?? Self.defaultFaviconURL(for: pageURL)))
-            }
+            guard let self, self.webView.url == pageURL else { return }
+            let declared = (result as? String).flatMap(URL.init(string:))
+            self.faviconHost = pageURL?.host()
+            self.updatePageState(faviconURL: .some(declared ?? Self.defaultFaviconURL(for: pageURL)))
         }
     }
 
@@ -174,7 +176,7 @@ extension WebKitTab: WKUIDelegate {
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
         let child = WebKitTab(configuration: configuration)
-        open(child, inBackground: false)
+        open(child, url: navigationAction.request.url, inBackground: false)
         return child.webView
     }
 }

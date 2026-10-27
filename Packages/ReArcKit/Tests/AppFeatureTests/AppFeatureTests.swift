@@ -79,4 +79,35 @@ struct AppFeatureTests {
         }
         await store.send(.pageStateChanged(UUID(), PageState(title: "Lost")))
     }
+
+    @Test func pageOpenedTabGoesAfterOpenerAndIsSelected() async {
+        let store = TestStore(initialState: AppFeature.State(tabs: [first, second])) {
+            AppFeature()
+        }
+        let popup = AppFeature.Tab(url: URL(string: "https://login.example.com")!, title: "login.example.com")
+        await store.send(.tabOpenedByPage(popup, openerID: first.id, inBackground: false)) {
+            $0.tabs = [first, popup, second]
+            $0.selectedTabID = popup.id
+        }
+    }
+
+    @Test func backgroundTabKeepsSelection() async {
+        let store = TestStore(initialState: AppFeature.State(tabs: [first, second])) {
+            AppFeature()
+        }
+        let link = AppFeature.Tab(url: URL(string: "https://example.net")!, title: "example.net")
+        await store.send(.tabOpenedByPage(link, openerID: second.id, inBackground: true)) {
+            $0.tabs = [first, second, link]
+        }
+    }
+
+    @Test func tabFromClosedOpenerGoesLast() async {
+        let store = TestStore(initialState: AppFeature.State(tabs: [first, second])) {
+            AppFeature()
+        }
+        let link = AppFeature.Tab(url: URL(string: "https://example.net")!, title: "example.net")
+        await store.send(.tabOpenedByPage(link, openerID: UUID(), inBackground: true)) {
+            $0.tabs = [first, second, link]
+        }
+    }
 }
