@@ -19,11 +19,15 @@ let package = Package(
         // Listed from the app entry point down the dependency graph.
         .target(
             name: "AppShell",
-            dependencies: ["AppFeature", "BrowserEngine", "ReArcUI", composableArchitecture]
+            dependencies: ["AppFeature", "BrowserEngine", "CommandBarFeature", "ReArcUI", composableArchitecture]
         ),
         .target(
             name: "AppFeature",
-            dependencies: ["ReArcFoundation", composableArchitecture]
+            dependencies: ["CommandBarFeature", "ReArcFoundation", composableArchitecture]
+        ),
+        .target(
+            name: "CommandBarFeature",
+            dependencies: ["ReArcFoundation", "ReArcUI", composableArchitecture]
         ),
         .target(
             name: "BrowserEngine",
@@ -37,7 +41,15 @@ let package = Package(
         ),
         .testTarget(
             name: "AppFeatureTests",
-            dependencies: ["AppFeature", composableArchitecture]
+            dependencies: ["AppFeature", "CommandBarFeature", "ReArcFoundation", composableArchitecture]
+        ),
+        .testTarget(
+            name: "CommandBarFeatureTests",
+            dependencies: ["CommandBarFeature", "ReArcFoundation", composableArchitecture]
+        ),
+        .testTarget(
+            name: "ReArcFoundationTests",
+            dependencies: ["ReArcFoundation"]
         ),
     ]
 )

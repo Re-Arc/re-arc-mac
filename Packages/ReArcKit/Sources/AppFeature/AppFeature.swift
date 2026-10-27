@@ -1,3 +1,4 @@
+import CommandBarFeature
 import ComposableArchitecture
 import Foundation
 import ReArcFoundation
@@ -16,6 +17,7 @@ public struct AppFeature {
         /// Most recently closed first, for Reopen Closed Tab.
         public var recentlyClosed: [ClosedTab] = []
         public var isSidebarVisible: Bool
+        @Presents public var commandBar: CommandBarFeature.State?
 
         public init(
             tabs: IdentifiedArrayOf<Tab> = [Tab(url: .startPage, title: Tab.startPageTitle)],
@@ -33,6 +35,9 @@ public struct AppFeature {
     }
 
     public enum Action: Equatable {
+        /// A command from the menu bar or the command bar.
+        case run(AppCommand)
+        case commandBar(PresentationAction<CommandBarFeature.Action>)
         case newTab(URL)
         case closeTab(Tab.ID)
         case reopenClosedTab
@@ -55,71 +60,152 @@ public struct AppFeature {
     public init() {}
 
     public var body: some ReducerOf<Self> {
-        Reduce { state, action in
-            switch action {
-            case let .newTab(url):
-                // New tabs go at the top of the list, as in Arc.
-                let title = url == .startPage ? Tab.startPageTitle : url.host() ?? "New Tab"
-                let tab = Tab(id: uuid(), url: url, title: title)
-                state.tabs.insert(tab, at: 0)
-                state.select(tab.id)
-                return .none
-
-            case let .closeTab(id):
-                guard let index = state.tabs.index(id: id) else { return .none }
-                let tab = state.tabs.remove(at: index)
-                state.recentlyClosed.insert(ClosedTab(url: tab.url, title: tab.title, index: index), at: 0)
-                state.recentlyClosed = Array(state.recentlyClosed.prefix(Self.recentlyClosedLimit))
-                if state.selectedTabID == id {
-                    state.select(state.tabToSelect(afterClosingAt: index))
-                }
-                return .run { [tabEngine] _ in
-                    await tabEngine.unload(id)
-                }
-
-            case .reopenClosedTab:
-                guard !state.recentlyClosed.isEmpty else { return .none }
-                let closed = state.recentlyClosed.removeFirst()
-                let tab = Tab(id: uuid(), url: closed.url, title: closed.title)
-                state.tabs.insert(tab, at: min(closed.index, state.tabs.count))
-                state.select(tab.id)
-                return .none
-
-            case .selectNextTab:
-                state.selectTab(offsetBy: 1)
-                return .none
-
-            case .selectPreviousTab:
-                state.selectTab(offsetBy: -1)
-                return .none
-
-            case let .tabSelected(id):
-                guard state.tabs[id: id] != nil else { return .none }
-                state.select(id)
-                return .none
-
-            case .toggleSidebar:
-                state.isSidebarVisible.toggle()
-                return .none
-
-            case let .pageStateChanged(id, page):
-                state.tabs[id: id]?.apply(page)
-                return .none
-
-            case let .tabOpenedByPage(tab, openerID, inBackground):
-                // Opened tabs go right after the page that opened them.
-                let index = state.tabs.index(id: openerID).map { $0 + 1 } ?? state.tabs.endIndex
-                state.tabs.insert(tab, at: index)
-                if !inBackground {
-                    state.select(tab.id)
-                }
-                return .none
+        Reduce(core)
+            .ifLet(\.$commandBar, action: \.commandBar) {
+                CommandBarFeature()
             }
+    }
+
+    private func core(into state: inout State, action: Action) -> Effect<Action> {
+        switch action {
+        case let .run(command):
+            return run(command, state: &state)
+
+        case let .commandBar(.presented(.delegate(delegate))):
+            // The bar was opened for this tab; selection may have moved since.
+            let barTabID = state.commandBar?.currentTabID
+            state.commandBar = nil
+            switch delegate {
+            case let .open(url, .newTab):
+                return core(into: &state, action: .newTab(url))
+            case let .open(url, .currentTab):
+                guard let id = barTabID, state.tabs[id: id] != nil else {
+                    return core(into: &state, action: .newTab(url))
+                }
+                state.tabs[id: id]?.url = url
+                return .run { [tabEngine] _ in
+                    await tabEngine.load(id, url)
+                }
+            case let .switchToTab(id):
+                return core(into: &state, action: .tabSelected(id))
+            case let .run(command):
+                return run(command, state: &state)
+            }
+
+        case .commandBar:
+            return .none
+
+        case let .newTab(url):
+            // New tabs go at the top of the list, as in Arc.
+            let title = url == .startPage ? Tab.startPageTitle : url.host() ?? "New Tab"
+            let tab = Tab(id: uuid(), url: url, title: title)
+            state.tabs.insert(tab, at: 0)
+            state.select(tab.id)
+            return .none
+
+        case let .closeTab(id):
+            guard let index = state.tabs.index(id: id) else { return .none }
+            let tab = state.tabs.remove(at: index)
+            state.recentlyClosed.insert(ClosedTab(url: tab.url, title: tab.title, index: index), at: 0)
+            state.recentlyClosed = Array(state.recentlyClosed.prefix(Self.recentlyClosedLimit))
+            if state.selectedTabID == id {
+                state.select(state.tabToSelect(afterClosingAt: index))
+            }
+            return .run { [tabEngine] _ in
+                await tabEngine.unload(id)
+            }
+
+        case .reopenClosedTab:
+            guard !state.recentlyClosed.isEmpty else { return .none }
+            let closed = state.recentlyClosed.removeFirst()
+            let tab = Tab(id: uuid(), url: closed.url, title: closed.title)
+            state.tabs.insert(tab, at: min(closed.index, state.tabs.count))
+            state.select(tab.id)
+            return .none
+
+        case .selectNextTab:
+            state.selectTab(offsetBy: 1)
+            return .none
+
+        case .selectPreviousTab:
+            state.selectTab(offsetBy: -1)
+            return .none
+
+        case let .tabSelected(id):
+            guard state.tabs[id: id] != nil else { return .none }
+            state.select(id)
+            return .none
+
+        case .toggleSidebar:
+            state.isSidebarVisible.toggle()
+            return .none
+
+        case let .pageStateChanged(id, page):
+            state.tabs[id: id]?.apply(page)
+            return .none
+
+        case let .tabOpenedByPage(tab, openerID, inBackground):
+            // Opened tabs go right after the page that opened them.
+            let index = state.tabs.index(id: openerID).map { $0 + 1 } ?? state.tabs.endIndex
+            state.tabs.insert(tab, at: index)
+            if !inBackground {
+                state.select(tab.id)
+            }
+            return .none
+        }
+    }
+
+    private func run(_ command: AppCommand, state: inout State) -> Effect<Action> {
+        switch command {
+        case .newTab:
+            // Cmd+T asks where to go, then opens it in a new tab.
+            state.commandBar = CommandBarFeature.State(
+                destination: .newTab,
+                openTabs: state.openTabsForCommandBar
+            )
+            return .none
+        case .openLocation:
+            guard let tab = state.selectedTab else {
+                return run(.newTab, state: &state)
+            }
+            state.commandBar = CommandBarFeature.State(
+                destination: .currentTab,
+                query: tab.url.absoluteString,
+                openTabs: state.openTabsForCommandBar,
+                currentTabID: tab.id
+            )
+            return .none
+        case .closeTab:
+            guard let id = state.selectedTabID else { return .none }
+            return core(into: &state, action: .closeTab(id))
+        case .reopenClosedTab:
+            return core(into: &state, action: .reopenClosedTab)
+        case .selectNextTab:
+            return core(into: &state, action: .selectNextTab)
+        case .selectPreviousTab:
+            return core(into: &state, action: .selectPreviousTab)
+        case .toggleSidebar:
+            return core(into: &state, action: .toggleSidebar)
         }
     }
 }
 
 extension AppFeature.State {
+    /// Whether a command does anything right now, for enabling menu items.
+    public func canRun(_ command: AppCommand) -> Bool {
+        switch command {
+        case .newTab, .openLocation: true
+        case .closeTab: selectedTabID != nil
+        case .reopenClosedTab: !recentlyClosed.isEmpty
+        case .selectNextTab, .selectPreviousTab: tabs.count > 1
+        case .toggleSidebar: true
+        }
+    }
+
+    var openTabsForCommandBar: [CommandBarFeature.OpenTab] {
+        tabs.map { CommandBarFeature.OpenTab(id: $0.id, title: $0.title, url: $0.url) }
+    }
+
     /// Selects a tab, remembering the one it replaces.
     mutating func select(_ id: AppFeature.Tab.ID?) {
         guard id != selectedTabID else { return }

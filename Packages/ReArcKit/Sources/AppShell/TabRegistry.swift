@@ -32,6 +32,12 @@ final class TabRegistry {
         engineTabs[id] = engineTab
     }
 
+    /// Navigates a tab's page if it's loaded. An unloaded tab loads its saved
+    /// URL when it's first shown, so there's nothing to do for it here.
+    func load(_ url: URL, in id: AppFeature.Tab.ID) {
+        engineTabs[id]?.load(url)
+    }
+
     /// Tears down a tab's page. It's created again if the tab is shown later.
     func unload(_ id: AppFeature.Tab.ID) {
         guard let engineTab = engineTabs.removeValue(forKey: id) else { return }

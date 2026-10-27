@@ -4,7 +4,7 @@ Working notes for contributors: how the app is wired today, the layout new code
 should follow, and WebKit/AppKit gotchas already hit. For how Arc itself is
 built, see [arc-teardown.md](arc-teardown.md).
 
-## How a tab works (as of #1 and #2)
+## How a tab works (as of #3)
 
 Follow one tab from launch to close:
 
@@ -23,11 +23,28 @@ Follow one tab from launch to close:
 6. Popups, `target=_blank` and Cmd/middle-clicks arrive as `.newTabOpened`.
    The engine has already made the child page; `AppDelegate` registers it under
    a new tab ID and sends `.tabOpenedByPage`.
-7. Menu commands (Tabs menu) go through the responder chain to the key
-   window's `BrowserWindowController`, which sends actions to the store.
-   With no window open, `AppDelegate.newTab` handles Cmd+T.
-8. `.closeTab` removes the tab, records it in `recentlyClosed`, picks the next
+7. Commands are defined once in `AppCommand` (ReArcFoundation): title and
+   `KeyShortcut`. `MainMenu` builds items from it, all with the
+   `runAppCommand:` selector and the command in `representedObject`. The
+   responder chain takes them to the key window's `BrowserWindowController`
+   (or `AppDelegate` when no window is open), which sends `.run(command)`.
+   `State.canRun(_:)` decides which items are enabled.
+8. Cmd+T and Cmd+L present `CommandBarFeature` (`@Presents commandBar`).
+   Typed text goes through `AddressInput` (URL or search). When the user
+   picks a row, the bar sends a `delegate` action. `AppFeature` closes the
+   bar and then:
+   - opens a new tab,
+   - calls `tabEngine.load` on the tab the bar was opened for,
+   - selects a tab, or
+   - runs a command.
+   `BrowserWindowView` gives keyboard focus back to the page on the next
+   runloop turn, once the new page is attached.
+9. `.closeTab` removes the tab, records it in `recentlyClosed`, picks the next
    selection and runs an effect calling `tabEngine.unload(id)`.
+
+To add a command, add a case to `AppCommand`, map it in `AppFeature.run(_:)`
+and `canRun(_:)`, and put it in a menu with `MainMenu.item(for:)`. It shows up
+in the command bar automatically.
 
 To act on a page from a reducer (load a URL, go back, zoom), add a closure to
 `TabEngineClient` (in `AppFeature`), implement it in `TabRegistry`, and wire it
@@ -106,10 +123,14 @@ Rules:
 - Menu items route through the responder chain. `NSWindowController` is
   automatically the window's next responder, so `BrowserWindowController`
   receives them, and `validateMenuItem` disables items that don't apply.
-- Don't name menu actions `selectNextTab:`/`selectPreviousTab:` or other
-  selectors NSWindow already implements: the window answers first. Browser
-  actions use `selectNextBrowserTab:` and similar, and windows set
-  `tabbingMode = .disallowed` so native window tabs don't compete.
+- Don't name menu actions after selectors AppKit or SwiftUI already
+  implement, such as `selectNextTab:` (NSWindow) or `toggleSidebar:` (the
+  hosting view): they answer first. Menus use `runAppCommand:` for that
+  reason, and windows set `tabbingMode = .disallowed` so native window tabs
+  don't compete.
+- A SwiftUI `TextField` doesn't reliably pass arrow keys, Return or Esc to
+  `onKeyPress` on macOS. The command bar wraps `NSTextField` and handles them
+  in `control(_:textView:doCommandBy:)`.
 - When masking modifier flags, keep only command/option/control/shift.
   `deviceIndependentFlagsMask` includes Caps Lock and breaks equality checks.
 - Change selection only through `State.select(_:)`, which records
@@ -136,5 +157,7 @@ Rules:
 
 Issue work is stacked, each PR based on the one before it:
 `main ← ci/skip-macro-validation (#14) ← issue/1-live-tabs (#15) ←
-issue/2-tab-shortcuts ← issue/3-…`. When a PR merges, retarget the next one
-to `main`.
+issue/2-tab-shortcuts ← issue/3-…`. Merging a stacked PR only merges into
+its base branch, not `main`. Before merging, retarget it to `main`, or turn on
+"Automatically delete head branches" so GitHub retargets the next PR when one
+merges.

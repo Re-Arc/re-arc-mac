@@ -30,7 +30,7 @@ final class BrowserWindowController: NSWindowController, NSMenuItemValidation {
         window.center()
         super.init(window: window)
         window.onControlTab = { [store] backwards in
-            store.send(backwards ? .selectPreviousTab : .selectNextTab)
+            store.send(.run(backwards ? .selectPreviousTab : .selectNextTab))
         }
     }
 
@@ -39,47 +39,19 @@ final class BrowserWindowController: NSWindowController, NSMenuItemValidation {
         fatalError("init(coder:) is not supported")
     }
 
-    @objc func newTab(_ sender: Any?) {
-        store.send(.newTab(.startPage))
-    }
-
-    @objc func closeTab(_ sender: Any?) {
-        guard let id = store.selectedTabID else { return }
-        store.send(.closeTab(id))
-    }
-
-    @objc func reopenClosedTab(_ sender: Any?) {
-        store.send(.reopenClosedTab)
-    }
-
-    // Not named toggleSidebar(_:): SwiftUI's hosting view answers that
-    // selector itself and sits ahead of this controller in the responder chain.
-    @objc func toggleBrowserSidebar(_ sender: Any?) {
-        store.send(.toggleSidebar)
-    }
-
-    @objc func selectNextBrowserTab(_ sender: Any?) {
-        store.send(.selectNextTab)
-    }
-
-    @objc func selectPreviousBrowserTab(_ sender: Any?) {
-        store.send(.selectPreviousTab)
+    @objc func runAppCommand(_ sender: NSMenuItem) {
+        guard let command = sender.appCommand else { return }
+        store.send(.run(command))
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        if menuItem.action == #selector(toggleBrowserSidebar(_:)) {
+        guard menuItem.action == #selector(runAppCommand(_:)), let command = menuItem.appCommand else {
+            return true
+        }
+        if command == .toggleSidebar {
             menuItem.title = store.isSidebarVisible ? "Hide Sidebar" : "Show Sidebar"
         }
-        return switch menuItem.action {
-        case #selector(closeTab(_:)):
-            store.selectedTabID != nil
-        case #selector(reopenClosedTab(_:)):
-            !store.recentlyClosed.isEmpty
-        case #selector(selectNextBrowserTab(_:)), #selector(selectPreviousBrowserTab(_:)):
-            store.tabs.count > 1
-        default:
-            true
-        }
+        return store.withState { $0.canRun(command) }
     }
 }
 
