@@ -54,7 +54,7 @@ Have an idea? [Open a feature request](https://github.com/Re-Arc/re-arc-mac/issu
 
 Re-Arc is not ready to install yet, but you can build the project skeleton.
 
-**Requirements:** macOS 14 or later, Xcode 16 or later, and [Homebrew](https://brew.sh).
+**Requirements:** macOS 14 or later, Xcode 26 or later, and [Homebrew](https://brew.sh).
 
 ```sh
 make bootstrap   # install XcodeGen
