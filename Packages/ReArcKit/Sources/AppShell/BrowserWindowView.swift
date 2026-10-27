@@ -10,13 +10,19 @@ struct BrowserWindowView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            SidebarView(store: store)
-                .frame(width: Theme.sidebarWidth)
+            if store.isSidebarVisible {
+                SidebarView(store: store)
+                    .frame(width: Theme.sidebarWidth)
+                    .transition(.move(edge: .leading))
+            }
             if let tab = store.selectedTab {
                 WebContentView(engine: engine, initialURL: tab.url)
                     .id(tab.id)
+                    // Without the sidebar, the page would sit under the traffic lights.
+                    .padding(.top, store.isSidebarVisible ? 0 : Theme.titleBarHeight)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: store.isSidebarVisible)
         .ignoresSafeArea()
     }
 }

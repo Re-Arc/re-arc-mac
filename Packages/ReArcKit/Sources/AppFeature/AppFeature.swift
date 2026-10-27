@@ -10,13 +10,16 @@ public struct AppFeature {
     public struct State: Equatable {
         public var tabs: IdentifiedArrayOf<Tab>
         public var selectedTabID: Tab.ID?
+        public var isSidebarVisible: Bool
 
         public init(
             tabs: IdentifiedArrayOf<Tab> = [Tab(url: .startPage, title: "Re-Arc")],
-            selectedTabID: Tab.ID? = nil
+            selectedTabID: Tab.ID? = nil,
+            isSidebarVisible: Bool = true
         ) {
             self.tabs = tabs
             self.selectedTabID = selectedTabID ?? tabs.first?.id
+            self.isSidebarVisible = isSidebarVisible
         }
 
         public var selectedTab: Tab? {
@@ -26,6 +29,7 @@ public struct AppFeature {
 
     public enum Action: Equatable {
         case tabSelected(Tab.ID)
+        case toggleSidebar
     }
 
     public init() {}
@@ -36,6 +40,10 @@ public struct AppFeature {
             case let .tabSelected(id):
                 guard state.tabs[id: id] != nil else { return .none }
                 state.selectedTabID = id
+                return .none
+
+            case .toggleSidebar:
+                state.isSidebarVisible.toggle()
                 return .none
             }
         }
