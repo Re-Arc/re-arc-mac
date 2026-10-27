@@ -19,7 +19,7 @@ test:
 
 # Build the .app bundle.
 app: project
-	xcodebuild -project ReArc.xcodeproj -scheme ReArc -configuration Debug -derivedDataPath .build/DerivedData $(XCODEBUILD_FLAGS) build
+	xcodebuild -project ReArc.xcodeproj -scheme ReArc -configuration Debug -derivedDataPath .build/DerivedData -skipMacroValidation $(XCODEBUILD_FLAGS) build
 
 open: project
 	open ReArc.xcodeproj
