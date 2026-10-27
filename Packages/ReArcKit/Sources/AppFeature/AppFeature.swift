@@ -26,6 +26,10 @@ public struct AppFeature {
 
     public enum Action: Equatable {
         case tabSelected(Tab.ID)
+        /// The engine reported a change in a tab's page.
+        case pageStateChanged(Tab.ID, PageState)
+        /// A page opened a link in a new tab (a popup, `target=_blank` or Cmd-click).
+        case tabOpenedByPage(Tab, openerID: Tab.ID, inBackground: Bool)
     }
 
     public init() {}
@@ -37,6 +41,19 @@ public struct AppFeature {
                 guard state.tabs[id: id] != nil else { return .none }
                 state.selectedTabID = id
                 return .none
+
+            case let .pageStateChanged(id, page):
+                state.tabs[id: id]?.apply(page)
+                return .none
+
+            case let .tabOpenedByPage(tab, openerID, inBackground):
+                // Opened tabs go right after the page that opened them.
+                let index = state.tabs.index(id: openerID).map { $0 + 1 } ?? state.tabs.endIndex
+                state.tabs.insert(tab, at: index)
+                if !inBackground {
+                    state.selectedTabID = tab.id
+                }
+                return .none
             }
         }
     }
@@ -47,11 +64,47 @@ extension AppFeature {
         public let id: UUID
         public var url: URL
         public var title: String
+        public var isLoading: Bool
+        public var estimatedProgress: Double
+        public var canGoBack: Bool
+        public var canGoForward: Bool
+        public var faviconURL: URL?
 
-        public init(id: UUID = UUID(), url: URL, title: String) {
+        public init(
+            id: UUID = UUID(),
+            url: URL,
+            title: String,
+            isLoading: Bool = false,
+            estimatedProgress: Double = 0,
+            canGoBack: Bool = false,
+            canGoForward: Bool = false,
+            faviconURL: URL? = nil
+        ) {
             self.id = id
             self.url = url
             self.title = title
+            self.isLoading = isLoading
+            self.estimatedProgress = estimatedProgress
+            self.canGoBack = canGoBack
+            self.canGoForward = canGoForward
+            self.faviconURL = faviconURL
+        }
+
+        mutating func apply(_ page: PageState) {
+            if let url = page.url {
+                self.url = url
+            }
+            if let title = page.title, !title.isEmpty {
+                self.title = title
+            } else if page.url != nil {
+                // Untitled pages show their host, not the previous page's title.
+                title = url.host() ?? url.absoluteString
+            }
+            isLoading = page.isLoading
+            estimatedProgress = page.estimatedProgress
+            canGoBack = page.canGoBack
+            canGoForward = page.canGoForward
+            faviconURL = page.faviconURL
         }
     }
 }

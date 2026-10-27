@@ -1,6 +1,5 @@
 import AppFeature
 import AppKit
-import BrowserEngine
 import ComposableArchitecture
 import SwiftUI
 
@@ -8,7 +7,7 @@ import SwiftUI
 /// (title bar, traffic lights) and SwiftUI draws everything inside it.
 @MainActor
 final class BrowserWindowController: NSWindowController {
-    init(store: StoreOf<AppFeature>, engine: any BrowserEngine) {
+    init(store: StoreOf<AppFeature>, tabs: TabRegistry) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -19,7 +18,7 @@ final class BrowserWindowController: NSWindowController {
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("BrowserWindow")
-        window.contentView = NSHostingView(rootView: BrowserWindowView(store: store, engine: engine))
+        window.contentView = NSHostingView(rootView: BrowserWindowView(store: store, tabs: tabs))
         window.center()
         super.init(window: window)
     }
