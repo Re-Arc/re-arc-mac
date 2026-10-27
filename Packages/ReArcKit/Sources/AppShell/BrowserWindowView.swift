@@ -14,6 +14,10 @@ struct BrowserWindowView: View {
                 .frame(width: Theme.sidebarWidth)
             if let tab = store.selectedTab {
                 WebContentView(tab: tabs.engineTab(for: tab))
+            } else {
+                // Closing the last tab leaves the window open with an empty page area.
+                Color(nsColor: .windowBackgroundColor)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .ignoresSafeArea()

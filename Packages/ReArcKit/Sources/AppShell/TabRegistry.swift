@@ -31,4 +31,12 @@ final class TabRegistry {
         }
         engineTabs[id] = engineTab
     }
+
+    /// Tears down a tab's page. It's created again if the tab is shown later.
+    func unload(_ id: AppFeature.Tab.ID) {
+        guard let engineTab = engineTabs.removeValue(forKey: id) else { return }
+        engineTab.onEvent = nil
+        engineTab.stopLoading()
+        engineTab.view.removeFromSuperview()
+    }
 }

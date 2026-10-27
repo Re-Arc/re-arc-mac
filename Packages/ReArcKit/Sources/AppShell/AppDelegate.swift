@@ -5,11 +5,20 @@ import ComposableArchitecture
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let store = Store(initialState: AppFeature.State()) {
-        AppFeature()
-    }
-    private let tabs = TabRegistry(engine: WebKitEngine())
+    private let tabs: TabRegistry
+    private let store: StoreOf<AppFeature>
     private var windowController: BrowserWindowController?
+
+    override init() {
+        let tabs = TabRegistry(engine: WebKitEngine())
+        self.tabs = tabs
+        store = Store(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.tabEngine = TabEngineClient(unload: { [weak tabs] id in tabs?.unload(id) })
+        }
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         tabs.onEvent = { [store, tabs] id, event in
@@ -37,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showBrowserWindow()
         }
         return true
+    }
+
+    // Reached only when no browser window is open to handle it.
+    @objc func newTab(_ sender: Any?) {
+        showBrowserWindow()
+        store.send(.newTab(.startPage))
     }
 
     private func showBrowserWindow() {
