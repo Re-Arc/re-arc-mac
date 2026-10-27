@@ -44,6 +44,18 @@ struct TabRegistryTests {
         #expect(engine.madeTabs.isEmpty)
     }
 
+    @Test func unloadForgetsThePageAndRecreatesItLater() {
+        let engine = FakeEngine()
+        let registry = TabRegistry(engine: engine)
+        let first = registry.engineTab(for: tab) as! FakeTab
+        registry.unload(tab.id)
+        #expect(first.onEvent == nil)
+        #expect(first.stopLoadingCount == 1)
+        let second = registry.engineTab(for: tab)
+        #expect(second !== first)
+        #expect(engine.madeTabs.count == 2)
+    }
+
     @Test func pagesDoNotKeepTheRegistryAlive() {
         let engineTab = FakeTab()
         weak var weakRegistry: TabRegistry?
@@ -84,5 +96,9 @@ final class FakeTab: BrowserTab {
     func goBack() {}
     func goForward() {}
     func reload() {}
-    func stopLoading() {}
+    var stopLoadingCount = 0
+
+    func stopLoading() {
+        stopLoadingCount += 1
+    }
 }

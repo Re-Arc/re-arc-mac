@@ -1,8 +1,9 @@
-import AppFeature
 import ComposableArchitecture
 import Foundation
 import ReArcFoundation
 import Testing
+
+@testable import AppFeature
 
 @MainActor
 struct AppFeatureTests {
@@ -20,6 +21,7 @@ struct AppFeatureTests {
         }
         await store.send(.tabSelected(second.id)) {
             $0.selectedTabID = second.id
+            $0.previouslySelectedTabID = first.id
         }
     }
 
@@ -88,6 +90,7 @@ struct AppFeatureTests {
         await store.send(.tabOpenedByPage(popup, openerID: first.id, inBackground: false)) {
             $0.tabs = [first, popup, second]
             $0.selectedTabID = popup.id
+            $0.previouslySelectedTabID = first.id
         }
     }
 
