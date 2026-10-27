@@ -24,7 +24,7 @@ Arc.app
 │   └── Firebase / gRPC / abseil / openssl_grpc
 ├── Contents/PlugIns/DockTilePlugIn.plugin
 └── Contents/Resources/
-    ├── ARC_*.bundle  (~55 feature resource bundles: CommandBar, Sidebar, Spaces, Boosts, LittleBrowser...)
+    ├── ARC_*.bundle  (48 feature resource bundles, mostly asset catalogs: CommandBar, Sidebar, Spaces, Boosts, LittleBrowser...)
     ├── Arc.sdef                           AppleScript dictionary
     └── popularDomains.json, GoogleService-Info.plist, 50+ .lproj locales
 ```
@@ -41,7 +41,7 @@ Arc.app
 | Web engine | **Chromium 151.0.7922.138**, a private fork named `ArcCore` | `ArcCore.framework` Info.plist, `SCMRevision …refs/branch-heads/7922` |
 | Engine bridge | Custom Mojo services exposed to Swift through generated C APIs | `arc/services/ai/public/mojom/ai_service.mojom-c_api.h`, `content_conversion_service.mojom-*` |
 | Secondary engine | WebKit (`WKWebView`), probably for small embedded surfaces | links `WebKit.framework` |
-| Local persistence | Core Data, plus leveldb (from Firebase) | links `CoreData`; `leveldb_leveldb.bundle` |
+| Local persistence | The sidebar, windows, archive and profiles are saved as JSON files (`StorableSidebar.json`, `StorableWindows.json`, `StorableArchive.json`, …). The sidebar is a tree of items linked by parent and child IDs. Core Data and leveldb (from Firebase) are linked too. | file names and model keys in the main binary; links `CoreData`; `leveldb_leveldb.bundle` |
 | Sync | CloudKit for sidebar sync, Firebase (Auth, Firestore, Functions, Storage) for accounts and sync, with encryption for synced data | `ARC_SidebarSyncCloudKit.bundle`, `FirebaseSidebarSyncClient`, `FirebaseSyncRemoteEncryptionClient` |
 | Updates | Sparkle 2 (EdDSA-signed appcast, checked every 8 h) | `SUFeedURL`, `SUPublicEDKey`, `SUScheduledCheckInterval = 28800` |
 | Telemetry | Sentry, Datadog, Segment, LaunchDarkly (feature flags) | symbol and string counts in the main binary |
@@ -79,7 +79,7 @@ arc/
 | Modularity | One local SwiftPM package with feature modules, plus a thin app target | Mirrors Arc's `Frameworks/` and `Browser/` split. Modules build and test without Xcode. |
 | Web engine | **WKWebView now, behind a `BrowserEngine` protocol** | Maintaining a Chromium fork (Arc's approach) needs dedicated build infrastructure and many hours of CI for each build. WebKit ships with macOS. The protocol keeps the option of adding a Chromium (CEF) engine later. |
 | Updates | Sparkle 2 | Same as Arc, and open source. |
-| Persistence | Undecided (SwiftData or GRDB) | Arc uses Core Data; choose this when the first feature needs storage. |
+| Persistence | Versioned Codable JSON, written atomically (proposed in #8) | Matches Arc's JSON sidebar files and needs no database. Revisit if history or search needs one. |
 | Telemetry | None | The project promises privacy: no Sentry, Datadog, Segment or LaunchDarkly. |
 | Accounts and sync | None for now | Arc requires an account; Re-Arc doesn't. CloudKit sync can be added later as an opt-in. |
 | Minimum macOS | 14.0 | Gives `@Observable`, SwiftData and recent SwiftUI APIs. |
