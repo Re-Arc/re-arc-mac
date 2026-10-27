@@ -1,4 +1,5 @@
 import AppKit
+import ReArcFoundation
 
 /// Builds the menu bar in code, since the app has no MainMenu nib.
 @MainActor
@@ -36,42 +37,36 @@ enum MainMenu {
         return menu
     }
 
-    // BrowserWindowController handles this through the responder chain and
-    // retitles the item to Show or Hide Sidebar.
+    // BrowserWindowController retitles the item to Show or Hide Sidebar.
     private static func viewMenu() -> NSMenu {
         let menu = NSMenu(title: "View")
-        menu.addItem(
-            withTitle: "Hide Sidebar",
-            action: #selector(BrowserWindowController.toggleBrowserSidebar(_:)),
-            keyEquivalent: "s"
-        )
+        menu.addItem(item(for: .toggleSidebar))
         return menu
     }
 
-    // Handled by the key window's BrowserWindowController.
+    // Handled by the key window's BrowserWindowController, or by AppDelegate
+    // when no browser window is open.
     private static func tabsMenu() -> NSMenu {
         let menu = NSMenu(title: "Tabs")
-        menu.addItem(withTitle: "New Tab", action: #selector(BrowserWindowController.newTab(_:)), keyEquivalent: "t")
-        menu.addItem(withTitle: "Close Tab", action: #selector(BrowserWindowController.closeTab(_:)), keyEquivalent: "w")
-        menu.addItem(
-            withTitle: "Reopen Closed Tab",
-            action: #selector(BrowserWindowController.reopenClosedTab(_:)),
-            keyEquivalent: "T"
-        )
+        for command in [AppCommand.newTab, .openLocation, .closeTab, .reopenClosedTab] {
+            menu.addItem(item(for: command))
+        }
         menu.addItem(.separator())
-        let next = menu.addItem(
-            withTitle: "Next Tab",
-            action: #selector(BrowserWindowController.selectNextBrowserTab(_:)),
-            keyEquivalent: arrowKey(NSDownArrowFunctionKey)
-        )
-        next.keyEquivalentModifierMask = [.command, .option]
-        let previous = menu.addItem(
-            withTitle: "Previous Tab",
-            action: #selector(BrowserWindowController.selectPreviousBrowserTab(_:)),
-            keyEquivalent: arrowKey(NSUpArrowFunctionKey)
-        )
-        previous.keyEquivalentModifierMask = [.command, .option]
+        for command in [AppCommand.selectNextTab, .selectPreviousTab] {
+            menu.addItem(item(for: command))
+        }
         return menu
+    }
+
+    static func item(for command: AppCommand) -> NSMenuItem {
+        let item = NSMenuItem(
+            title: command.title,
+            action: #selector(BrowserWindowController.runAppCommand(_:)),
+            keyEquivalent: command.shortcut?.keyEquivalent ?? ""
+        )
+        item.keyEquivalentModifierMask = command.shortcut?.modifierMask ?? []
+        item.representedObject = command.rawValue
+        return item
     }
 
     private static func windowMenu() -> NSMenu {
@@ -81,10 +76,6 @@ enum MainMenu {
         menu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "W")
         NSApp.windowsMenu = menu
         return menu
-    }
-
-    private static func arrowKey(_ key: Int) -> String {
-        String(Character(UnicodeScalar(UInt16(key))!))
     }
 
     private static func submenuItem(_ submenu: NSMenu) -> NSMenuItem {

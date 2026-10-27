@@ -76,13 +76,16 @@ The stack follows how Arc itself is built. See the [Arc teardown](docs/arc-teard
 ```
 App/                    app target: entry point, Info.plist, entitlements
 Packages/ReArcKit/      all app code, as Swift package modules
-  AppShell/             app delegate, windows, menus
-  AppFeature/           root state and actions (TCA)
+  AppShell/             app delegate, windows, menus, engine hosting
+  AppFeature/           root reducer; composes the feature modules (TCA)
+  <Name>Feature/        one module per feature: reducer and its views
   BrowserEngine/        engine protocol and WebKit implementation
-  ReArcUI/              design tokens and shared views
-  ReArcFoundation/      shared models (profiles, URLs)
+  ReArcUI/              design tokens and store-free shared views
+  ReArcFoundation/      models, URL parsing, the shared command list
 project.yml             XcodeGen spec for ReArc.xcodeproj
 ```
+
+New features get their own `<Name>Feature` module; views that take a store live with their reducer. See [docs/dev-notes.md](docs/dev-notes.md) for the full layout rules and how the app is wired.
 
 ## Contributing
 

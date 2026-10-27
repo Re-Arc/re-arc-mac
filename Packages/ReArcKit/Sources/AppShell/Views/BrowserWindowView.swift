@@ -1,5 +1,6 @@
 import AppFeature
 import BrowserEngine
+import CommandBarFeature
 import ComposableArchitecture
 import ReArcUI
 import SwiftUI
@@ -27,6 +28,27 @@ struct BrowserWindowView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: store.isSidebarVisible)
         .ignoresSafeArea()
+        .overlay(alignment: .top) {
+            if let barStore = store.scope(state: \.commandBar, action: \.commandBar.presented) {
+                ZStack(alignment: .top) {
+                    // Clicking anywhere outside the bar closes it.
+                    Color.black.opacity(0.001)
+                        .onTapGesture { barStore.send(.cancelled) }
+                    CommandBarView(store: barStore)
+                        .padding(.top, Theme.commandBarTopInset)
+                }
+            }
+        }
+        .onChange(of: store.commandBar == nil) { _, isClosed in
+            // Give the keyboard back to the page once the bar goes away.
+            guard isClosed, let tab = store.selectedTab else { return }
+            // Opening a new tab or switching attaches a different page in this
+            // same update, so wait until it's in the window.
+            let pageView = tabs.engineTab(for: tab).view
+            DispatchQueue.main.async {
+                pageView.window?.makeFirstResponder(pageView)
+            }
+        }
     }
 }
 

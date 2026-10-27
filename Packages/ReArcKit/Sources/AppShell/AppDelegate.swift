@@ -4,7 +4,7 @@ import BrowserEngine
 import ComposableArchitecture
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private let tabs: TabRegistry
     private let store: StoreOf<AppFeature>
     private var windowController: BrowserWindowController?
@@ -15,7 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store = Store(initialState: AppFeature.State()) {
             AppFeature()
         } withDependencies: {
-            $0.tabEngine = TabEngineClient(unload: { [weak tabs] id in tabs?.unload(id) })
+            $0.tabEngine = TabEngineClient(
+                load: { [weak tabs] id, url in tabs?.load(url, in: id) },
+                unload: { [weak tabs] id in tabs?.unload(id) }
+            )
         }
         super.init()
     }
@@ -48,10 +51,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    // Reached only when no browser window is open to handle it.
-    @objc func newTab(_ sender: Any?) {
+    // Reached only when no browser window is open to handle the command.
+    @objc func runAppCommand(_ sender: NSMenuItem) {
+        guard let command = sender.appCommand else { return }
         showBrowserWindow()
-        store.send(.newTab(.startPage))
+        store.send(.run(command))
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard menuItem.action == #selector(runAppCommand(_:)) else { return true }
+        return menuItem.appCommand == .newTab || menuItem.appCommand == .openLocation
     }
 
     private func showBrowserWindow() {
